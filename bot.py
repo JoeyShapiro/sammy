@@ -2,35 +2,9 @@ import discord
 from discord.ext import commands
 import logging
 import os
-import mysql.connector
-import time
-import asyncio
+from transformers import AutoTokenizer
 
-def db_connect():
-    conn = None
-    while conn is None:
-        try:
-            conn = mysql.connector.connect(
-                host="db",
-                user=mysql_user,
-                password=mysql_password,
-                database="nickeljar",
-                autocommit=True,
-                connect_timeout=10
-            )
-            break
-        except mysql.connector.Error as err:
-            print(f"Failed to connect to MySQL server: {err}")
-            time.sleep(1)
-        except Exception as e:
-            print(f"MySQL error occured: {e}")
-            exit(1)
-
-    logger.info("Connected to MySQL")
-    print("Connected to MySQL")
-    return conn
-
-data_path = 'data'
+data_path = '.'
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logging.getLogger('discord.http').setLevel(logging.INFO)
@@ -45,36 +19,29 @@ formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message}', 
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+messages = []
+
 # load token from env
 discord_token = os.getenv('DISCORD_TOKEN')
+if discord_token is None:
+    # try to load .env
+    with open('.env', 'r') as f:
+        for line in f:
+            key, value = line.strip().split('=')
+            if key == 'DISCORD_TOKEN':
+                discord_token = value
+                break
+    
 if discord_token is None:
     print("DISCORD_TOKEN not found")
     logger.error("DISCORD_TOKEN not found")
     exit(1)
 
-# load mysql creds from env
-mysql_user = os.getenv('MYSQL_USER')
-if mysql_user is None:
-    print("MYSQL_USER not found")
-    logger.error("MYSQL_USER not found")
-    exit(1)
-mysql_password = os.getenv('MYSQL_PASSWORD')
-if mysql_password is None:
-    print("MYSQL_PASSWORD not found")
-    logger.error("MYSQL_PASSWORD not found")
-    exit(1)
-
-# load all word lists in memory (ext is txt)
-words = []
-for file in os.listdir(f'{data_path}/'):
-    if file.endswith('.txt'):
-        with open(f'{data_path}/{file}', 'r') as f:
-            for line in f:
-                words.append(line.strip())
-print(f"Loaded {len(words)} word(s)")
-logger.info(f"Loaded {len(words)} word(s)")
-
-conn = db_connect()
+tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+eos = tokenizer.sep_token
+max_tokens = 128
+print(f"Tokenizer: {tokenizer}; EOS: {eos}; Max tokens: {max_tokens}")
+logger.info(f"Tokenizer: {tokenizer}; EOS: {eos}; Max tokens: {max_tokens}")
 
 @bot.event
 async def on_ready():
@@ -82,48 +49,32 @@ async def on_ready():
     print(f'We have logged in as {bot.user}')
     logger.info(f'We have logged in as {bot.user}')
 
-    # run the birthday thread
-    asyncio.create_task(wait_for_bdays())
-
 @bot.event
 async def on_message(message):
     await bot.process_commands(message)
-    
+    messages = globals()['messages']
+
+    try:
+        messages.append(message)
+        tokens = []
+        i = 0
+        for msg_iter in messages[::-1]:
+            tokens += tokenizer.tokenize(msg_iter.content+eos)
+            if len(tokens) > max_tokens:
+                break
+            i += 1
+        messages = messages[len(messages)-i-1:]
+    except Exception as e:
+        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
+
     if message.author == bot.user:
         return
-
-    content = message.content.lower()
-    # remove punctuation
-    content = ''.join(e for e in content if e.isalnum() or e.isspace())
-
-    # TODO convert all numbers to words
-    # content = content.replace('0', 'o').replace('1', 'i')
-
-    conn = globals().get('conn')
-
-    vulgarity = {}
-    for word in content.split():
-        if word in words:
-            # add_nickel(message)
-            vulgarity[word] = vulgarity.get(word, 0) + 1
     
-    if not conn.is_connected():
-        conn = db_connect()
+    if should_talk(tokens):
+        await message.channel.send(f"The total tokens are {len(tokens)}.")
 
-    # round about way, but it works out
-    cursor = conn.cursor()
-    for word, count in vulgarity.items():
-        # oh lol. would only add once for each word
-        for _ in range(count):
-            cursor.execute("insert into nickels (guild, username, word) VALUES (%s, %s, %s)",
-                           (message.guild.name, message.author.name, word)
-                          )
-    cursor.close()
-
-    nickels = sum(vulgarity.values())
-    if nickels > 1:
-        await message.channel.send(f"{message.author} added {nickels} nickels to the jar")
-    elif nickels == 1:
-        await message.channel.send(f"{message.author} added a nickel to the jar")
+def should_talk(tokens) -> bool:
+    return len(tokens) > max_tokens
 
 bot.run(discord_token, log_handler=None)
