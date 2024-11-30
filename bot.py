@@ -6,6 +6,7 @@ from transformers import AutoTokenizer, pipeline, set_seed
 import torch
 import requests
 import json
+import time
 
 class OllamaAPI:
     def __init__(self, base_url="http://localhost:11434"):
@@ -39,7 +40,10 @@ class OllamaAPI:
         if options:
             payload.update(options)
         
-        response = requests.post(endpoint, json=payload)
+        try:
+            response = requests.post(endpoint, json=payload)
+        except requests.exceptions.RequestException as e:
+            return f"Error: {e}"
 
         reply = ''
         for data in response.content.split(b'\n'):
@@ -146,24 +150,22 @@ async def on_message(message):
     if '<@1311363791157465179>' in message.content:
         message.content = message.content.replace('<@1311363791157465179>', 'Sammy')
 
-        try:
-            print("Generating response...")
-            ollama = OllamaAPI()
-            
-            # Generate text
-            response = ollama.generate(
-                model="llama3.2:latest",
-                prompt=message.content,
-                system="You are a chatter named Sammy",
-                options={
-                    "temperature": 0.7,
-                    "max_tokens": 100
-                }
-            )
-            await message.channel.send(response)
-        except Exception as e:
-            print(f"Error: {e}")
-            logger.error(f"Error: {e}")
+        print("Generating response...")
+        start = time.time()
+        ollama = OllamaAPI()
+        
+        # Generate text
+        response = ollama.generate(
+            model="llama3.2:latest",
+            prompt=message.content,
+            system="You are a female chatter named Sammy. you are an egirl who occastionally adds japenese into your messages.",
+            options={
+                "temperature": 0.7,
+                "max_tokens": 100
+            }
+        )
+        print(f"Response took {time.time()-start:.2f}s.")
+        await message.channel.send(response)
     
     if should_talk(tokens):
         await message.channel.send(f"The total tokens are {len(tokens)}.")
