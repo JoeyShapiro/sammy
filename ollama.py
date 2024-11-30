@@ -10,7 +10,7 @@ class OllamaAPI:
         """
         self.base_url = base_url.rstrip('/')
         
-    def generate(self, model="llama2", prompt="", system="", options=None):
+    def generate(self, model, prompt="", system="", options=None):
         """Generate a response using the specified model.
         
         Args:
@@ -33,16 +33,18 @@ class OllamaAPI:
         if options:
             payload.update(options)
         
-        response = requests.post(endpoint, json=payload)
+        try:
+            response = requests.post(endpoint, json=payload)
+        except requests.exceptions.RequestException as e:
+            return f"Error: {e}"
 
         reply = ''
         for data in response.content.split(b'\n'):
-            print(data)
             message = json.loads(data)
+            reply += message['response']
+
             if message['done']:
                 break
-
-            reply += message['response']
             
         return reply
     

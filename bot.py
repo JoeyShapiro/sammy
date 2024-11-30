@@ -4,81 +4,8 @@ import logging
 import os
 from transformers import AutoTokenizer, pipeline, set_seed
 import torch
-import requests
-import json
 import time
-
-class OllamaAPI:
-    def __init__(self, base_url="http://localhost:11434"):
-        """Initialize Ollama API client.
-        
-        Args:
-            base_url (str): Base URL for Ollama API (default: http://localhost:11434)
-        """
-        self.base_url = base_url.rstrip('/')
-        
-    def generate(self, model, prompt="", system="", options=None):
-        """Generate a response using the specified model.
-        
-        Args:
-            model (str): Name of the model to use
-            prompt (str): The prompt to send to the model
-            system (str): System prompt to prepend
-            options (dict): Additional model parameters like temperature
-            
-        Returns:
-            dict: JSON response from the API
-        """
-        endpoint = f"{self.base_url}/api/generate"
-        
-        payload = {
-            "model": model,
-            "prompt": prompt,
-            "system": system,
-        }
-        
-        if options:
-            payload.update(options)
-        
-        try:
-            response = requests.post(endpoint, json=payload)
-        except requests.exceptions.RequestException as e:
-            return f"Error: {e}"
-
-        reply = ''
-        for data in response.content.split(b'\n'):
-            message = json.loads(data)
-            reply += message['response']
-
-            if message['done']:
-                break
-            
-        return reply
-    
-    def list_models(self):
-        """List all available models.
-        
-        Returns:
-            dict: JSON response containing available models
-        """
-        endpoint = f"{self.base_url}/api/tags"
-        response = requests.get(endpoint)
-        return response.json()
-    
-    def pull_model(self, model="llama2"):
-        """Pull a model from Ollama's registry.
-        
-        Args:
-            model (str): Name of the model to pull
-            
-        Returns:
-            dict: JSON response indicating pull status
-        """
-        endpoint = f"{self.base_url}/api/pull"
-        payload = {"name": model}
-        response = requests.post(endpoint, json=payload)
-        return response.json()
-
+import ollama
 
 data_path = '.'
 logger = logging.getLogger(__name__)
@@ -152,10 +79,10 @@ async def on_message(message):
 
         print("Generating response...")
         start = time.time()
-        ollama = OllamaAPI()
+        model = ollama.OllamaAPI()
         
         # Generate text
-        response = ollama.generate(
+        response = model.generate(
             model="llama3.2:latest",
             prompt=message.content,
             system="You are a female chatter named Sammy. you are an egirl who occastionally adds japenese into your messages.",
