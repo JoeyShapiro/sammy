@@ -1,0 +1,10 @@
+version: '4.8.1'
+services:
+  bot:
+    build: .
+    volumes:
+      - ./server:/app/data:rw
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?error}
+      OLLAMA_URL: ${OLLAMA_URL:?error}
+    restart: always
