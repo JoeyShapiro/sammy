@@ -24,21 +24,25 @@ logger.addHandler(handler)
 
 messages = []
 
+def get_env(env_key):
+    env_val = os.getenv(env_key)
+    if env_val is None:
+        # try to load .env
+        with open('.env', 'r') as f:
+            for line in f:
+                key, value = line.strip().split('=')
+                if key == env_key:
+                    env_val = value
+                    break
+        
+    if env_val is None:
+        print(f"{env_key} not found")
+        logger.error(f"{env_key} not found")
+        exit(1)
+
 # load token from env
-discord_token = os.getenv('DISCORD_TOKEN')
-if discord_token is None:
-    # try to load .env
-    with open('.env', 'r') as f:
-        for line in f:
-            key, value = line.strip().split('=')
-            if key == 'DISCORD_TOKEN':
-                discord_token = value
-                break
-    
-if discord_token is None:
-    print("DISCORD_TOKEN not found")
-    logger.error("DISCORD_TOKEN not found")
-    exit(1)
+discord_token = get_env('DISCORD_TOKEN')
+ollama_url = get_env('OLLAMA_URL')
 
 tokenizer = AutoTokenizer.from_pretrained('gpt2')
 eos = tokenizer.eos_token
@@ -80,7 +84,7 @@ async def on_message(message):
         async with message.channel.typing():
             print("Generating response...")
             start = time.time()
-            model = ollama.OllamaAPI()
+            model = ollama.OllamaAPI(base_url=ollama_url)
             
             # Generate text
             response = model.generate(
