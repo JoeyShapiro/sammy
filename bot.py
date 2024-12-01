@@ -40,6 +40,8 @@ def get_env(env_key):
         logger.error(f"{env_key} not found")
         exit(1)
 
+    return env_val
+
 # load token from env
 discord_token = get_env('DISCORD_TOKEN')
 ollama_url = get_env('OLLAMA_URL')
