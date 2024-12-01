@@ -41,7 +41,7 @@ if discord_token is None:
     exit(1)
 
 tokenizer = AutoTokenizer.from_pretrained('gpt2')
-eos = tokenizer.sep_token
+eos = tokenizer.eos_token
 max_tokens = 128
 print(f"Tokenizer: {tokenizer}; EOS: {eos}; Max tokens: {max_tokens}")
 logger.info(f"Tokenizer: {tokenizer}; EOS: {eos}; Max tokens: {max_tokens}")
