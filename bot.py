@@ -77,21 +77,22 @@ async def on_message(message):
     if '<@1311363791157465179>' in message.content:
         message.content = message.content.replace('<@1311363791157465179>', 'Sammy')
 
-        print("Generating response...")
-        start = time.time()
-        model = ollama.OllamaAPI()
-        
-        # Generate text
-        response = model.generate(
-            model="llama3.2:latest",
-            prompt=message.content,
-            system="You are a female chatter named Sammy. you are an egirl who occastionally adds japenese into your messages.",
-            options={
-                "temperature": 0.7,
-                "max_tokens": 100
-            }
-        )
-        print(f"Response took {time.time()-start:.2f}s.")
+        async with message.channel.typing():
+            print("Generating response...")
+            start = time.time()
+            model = ollama.OllamaAPI()
+            
+            # Generate text
+            response = model.generate(
+                model="llama3.2:latest",
+                prompt=message.content,
+                system="You are a female chatter named Sammy. you are an egirl who occastionally adds japenese into your messages.",
+                options={
+                    "temperature": 0.7,
+                    "max_tokens": 100
+                }
+            )
+            print(f"Response took {time.time()-start:.2f}s.")
         await message.channel.send(response)
     
     if should_talk(tokens):
