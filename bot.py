@@ -105,6 +105,6 @@ async def on_message(message):
         await message.channel.send(f"The total tokens are {len(tokens)}.")
 
 def should_talk(tokens) -> bool:
-    return len(tokens) > max_tokens
+    return False #len(tokens) > max_tokens
 
 bot.run(discord_token, log_handler=None)
